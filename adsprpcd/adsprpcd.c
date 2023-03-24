@@ -36,6 +36,7 @@
 
 #define VERIFY_PRINT_INFO 0
 
+#include <string.h>
 #include <stdio.h>
 #include <dlfcn.h>
 #include <unistd.h>
