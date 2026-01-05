@@ -92,6 +92,8 @@ LOCAL_C_INCLUDES := \
         $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/techpack/audio/include \
         $(call include-path-for, audio-effects) \
         $(call project-path-for,qcom-audio)/primary-hal/hal/audio_extn/
+		
+LOCAL_C_INCLUDES += hardware/qcom-caf/sm6225/audio/pal/session/inc
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_DLKM)),true)
   LOCAL_HEADER_LIBRARIES += audio_kernel_headers
