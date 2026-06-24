@@ -1,6 +1,8 @@
 LOCAL_PATH := $(call my-dir)
 
+ifeq ($(filter _515_32go _515s_32go _515tiny_32go, $(TARGET_BOARD_SUFFIX)),)
 LOCAL_AUDIO_SERVICE_64 := taro parrot bengal holi blair
+endif #TARGET_BOARD_SUFFIX
 
 include $(CLEAR_VARS)
 ifeq ($(call is-board-platform-in-list,$(LOCAL_AUDIO_SERVICE_64)), true)
@@ -31,6 +33,14 @@ endif
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_EC_REF_CAPTURE)),true)
 LOCAL_CFLAGS += -DEC_REF_CAPTURE_ENABLED
+endif
+
+ifeq ($(strip $(AUDIO_FEATURE_ENABLED_DYNAMIC_SR)),true)
+LOCAL_CFLAGS += -DDYNAMIC_SR_ENABLED
+endif
+
+ifeq ($(strip $(AUDIO_FEATURE_ENABLED_TRUE_STEREO)),true)
+LOCAL_CFLAGS += -DTRUE_STEREO_ENABLED
 endif
 
 LOCAL_CFLAGS += -Wno-macro-redefined

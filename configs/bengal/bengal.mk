@@ -91,6 +91,7 @@ AUDIO_FEATURE_ENABLED_SVA_MULTI_STAGE := true
 AUDIO_FEATURE_ENABLED_BATTERY_LISTENER := true
 BUILD_AUDIO_TECHPACK_SOURCE := true
 AUDIO_FEATURE_ENABLED_MCS := true
+AUDIO_FEATURE_ENABLED_DEVICE_PREPARE_SEQ := true
 ##AUDIO_FEATURE_FLAGS
 #AGM
 AUDIO_AGM := libagmclient
@@ -108,6 +109,7 @@ AUDIO_AGM += agmcompressplay
 AUDIO_AGM += libagm_mixer_plugin
 AUDIO_AGM += libagm_pcm_plugin
 AUDIO_AGM += libagm_compress_plugin
+AUDIO_AGM += stt_meta_extract
 
 #PAL Service
 AUDIO_PAL += libpalclient
@@ -127,7 +129,6 @@ AUDIO_HARDWARE := audio.a2dp.default
 AUDIO_HARDWARE += audio.usb.default
 AUDIO_HARDWARE += audio.r_submix.default
 AUDIO_HARDWARE += audio.primary.bengal
-AUDIO_HARDWARE += audio.usb.bengal
 
 #HAL Wrapper
 AUDIO_WRAPPER := libqahw
@@ -161,18 +162,37 @@ PRODUCT_PACKAGES += ftm_test_config_bengal-qrd-snd-card
 PRODUCT_PACKAGES += ftm_test_config_bengal-idp-snd-card
 PRODUCT_PACKAGES += ftm_test_config_bengal-scubaidp-snd-card
 PRODUCT_PACKAGES += ftm_test_config_bengal-scubaqrd-snd-card
+ifneq ($(TARGET_HAS_QTI_OPTIMIZATIONS), true)
 PRODUCT_PACKAGES += audioadsprpcd
 PRODUCT_PACKAGES += vendor.qti.audio-adsprpc-service.rc
+endif
+ifeq ($(filter _515_32go _515s_32go _515tiny_32go, $(TARGET_BOARD_SUFFIX)),)
 PRODUCT_PACKAGES += android.hardware.audio.service_64
 PRODUCT_PACKAGES += android.hardware.audio.service_64.rc
+else
+PRODUCT_PACKAGES += android.hardware.audio.service
+PRODUCT_PACKAGES += android.hardware.audio.service.rc
+endif #TARGET_BOARD_SUFFIX
 PRODUCT_PACKAGES += MTP_acdb_cal.acdb
 PRODUCT_PACKAGES += MTP_workspaceFileXml.qwsp
 PRODUCT_PACKAGES += IDP_acdb_cal.acdb
 PRODUCT_PACKAGES += IDP_workspaceFileXml.qwsp
+ifeq ($(TARGET_HAS_QTI_OPTIMIZATIONS), true)
+PRODUCT_PACKAGES += IDP_qti_optimized_acdb_cal.acdb
+PRODUCT_PACKAGES += IDP_qti_optimized_workspaceFileXml.qwsp
+endif
 PRODUCT_PACKAGES += QRD_acdb_cal.acdb
 PRODUCT_PACKAGES += QRD_workspaceFileXml.qwsp
+ifeq ($(TARGET_HAS_QTI_OPTIMIZATIONS), true)
+PRODUCT_PACKAGES += QRD_qti_optimized_acdb_cal.acdb
+PRODUCT_PACKAGES += QRD_qti_optimized_workspaceFileXml.qwsp
+endif
 PRODUCT_PACKAGES += IDP_scuba_acdb_cal.acdb
 PRODUCT_PACKAGES += IDP_scuba_workspaceFileXml.qwsp
+ifeq ($(TARGET_HAS_QTI_OPTIMIZATIONS), true)
+PRODUCT_PACKAGES += IDP_scuba_qti_optimized_acdb_cal.acdb
+PRODUCT_PACKAGES += IDP_scuba_qti_optimized_workspaceFileXml.qwsp
+endif
 PRODUCT_PACKAGES += QRD_scuba_acdb_cal.acdb
 PRODUCT_PACKAGES += QRD_scuba_workspaceFileXml.qwsp
 PRODUCT_PACKAGES += fai_3.0.0_0.0_eai_1.00.pmd
@@ -187,7 +207,9 @@ PRODUCT_PACKAGES += QRD_arrax_acdb_cal.acdb
 PRODUCT_PACKAGES += QRD_arrax_workspaceFileXml.qwsp
 PRODUCT_PACKAGES += fai__2.0.0_0.1__3.0.0_0.0__eai_1.10.pmd
 PRODUCT_PACKAGES += fai__2.2.0_0.1__3.0.0_0.0__eai_1.10.pmd
+PRODUCT_PACKAGES += fai__2.7.20_0.0__3.0.0_0.0__eai_1.50_adsp.pmd
 PRODUCT_PACKAGES += fai__4.6.1.5_0.0__3.0.0_0.0__3.1.1_0.0__3.2.0_0.0__eai_1.10_enpuv1.pmd
+PRODUCT_PACKAGES += fai__4.6.3_0.0__3.0.0_0.0__eai_1.50_adsp.pmd
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_MCS)), true)
 PRODUCT_PACKAGES += libmcs
@@ -213,11 +235,15 @@ PRODUCT_COPY_FILES += \
     $(CONFIG_HAL_SRC_DIR)/mixer_paths_bengal_idp.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths_bengal_idp.xml \
     $(CONFIG_HAL_SRC_DIR)/mixer_paths_scubaidp.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths_scubaidp.xml \
     $(CONFIG_HAL_SRC_DIR)/mixer_paths_scubaqrd.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths_scubaqrd.xml \
+    $(CONFIG_HAL_SRC_DIR)/mixer_paths_bengal_scubaidp.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths_bengal_scubaidp.xml \
+    $(CONFIG_HAL_SRC_DIR)/mixer_paths_bengal_scubaqrd.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths_bengal_scubaqrd.xml \
     $(CONFIG_HAL_SRC_DIR)/mixer_paths_bengal_qrd.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths_bengal_qrd.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_bengal_idp.xml:$(TARGET_COPY_OUT_VENDOR)/etc/resourcemanager_bengal_idp.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_bengal_qrd.xml:$(TARGET_COPY_OUT_VENDOR)/etc/resourcemanager_bengal_qrd.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_scubaidp.xml:$(TARGET_COPY_OUT_VENDOR)/etc/resourcemanager_scubaidp.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_scubaqrd.xml:$(TARGET_COPY_OUT_VENDOR)/etc/resourcemanager_scubaqrd.xml \
+    $(CONFIG_PAL_SRC_DIR)/resourcemanager_bengal_scubaidp.xml:$(TARGET_COPY_OUT_VENDOR)/etc/resourcemanager_bengal_scubaidp.xml \
+    $(CONFIG_PAL_SRC_DIR)/resourcemanager_bengal_scubaqrd.xml:$(TARGET_COPY_OUT_VENDOR)/etc/resourcemanager_bengal_scubaqrd.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_bengal_idp_arrax.xml:$(TARGET_COPY_OUT_VENDOR)/etc/resourcemanager_bengal_idp_arrax.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_bengal_qrd_arrax.xml:$(TARGET_COPY_OUT_VENDOR)/etc/resourcemanager_bengal_qrd_arrax.xml \
     $(CONFIG_PAL_SRC_DIR)/usecaseKvManager.xml:$(TARGET_COPY_OUT_VENDOR)/etc/usecaseKvManager.xml \
@@ -229,8 +255,7 @@ PRODUCT_COPY_FILES += \
 #XML Audio configuration files
 ifneq ($(TARGET_USES_AOSP_FOR_AUDIO), true)
 PRODUCT_COPY_FILES += \
-    $(CONFIG_HAL_SRC_DIR)/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio/audio_policy_configuration.xml \
-    $(CONFIG_HAL_SRC_DIR)/audio_policy_configuration_gaming.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio/audio_policy_configuration_gaming.xml
+    $(CONFIG_HAL_SRC_DIR)/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio/audio_policy_configuration.xml
 endif
 
 PRODUCT_COPY_FILES += \
@@ -499,8 +524,14 @@ vendor.audio.gsl.shmem.dmaheap.uncached=true \
 vendor.audio.feature.snd_mon.enable=true
 
 # for HIDL related packages
+ifeq ($(filter _515_32go _515s_32go _515tiny_32go, $(TARGET_BOARD_SUFFIX)),)
 PRODUCT_PACKAGES += \
-    android.hardware.audio@2.0-service_64 \
+    android.hardware.audio@2.0-service_64
+else
+PRODUCT_PACKAGES += \
+    android.hardware.audio@2.0-service
+endif# TARGET_BOARD_SUFFIX
+PRODUCT_PACKAGES += \
     android.hardware.audio@2.0-impl \
     android.hardware.audio.effect@2.0-impl \
     android.hardware.soundtrigger@2.1-impl \

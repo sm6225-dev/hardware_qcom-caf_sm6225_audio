@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,37 +28,9 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *
- *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef ANDROID_HARDWARE_AHAL_ASTREAM_H_
@@ -97,6 +68,7 @@
 #define DEFAULT_OUTPUT_SAMPLING_RATE    48000
 #define LOW_LATENCY_PLAYBACK_PERIOD_SIZE 240 /** 5ms; frames */
 #define LOW_LATENCY_PLAYBACK_PERIOD_COUNT 2
+#define LOW_LATENCY_ICMD_PLAYBACK_PERIOD_COUNT 4 /** In Call Music **/
 
 #define PCM_OFFLOAD_PLAYBACK_PERIOD_COUNT 2 /** Direct PCM */
 #define DEEP_BUFFER_PLAYBACK_PERIOD_COUNT 2 /** Deep Buffer*/
@@ -527,7 +499,24 @@ private:
     pal_device_id_t* mPalOutDeviceIds;
     std::set<audio_devices_t> mAndroidOutDevices;
     bool mInitialized;
-    bool mBypassHaptic;
+    bool mComboDevice = false;
+    bool isOffloadUsecase() {
+        int usecase = GetUseCase();
+        switch (usecase) {
+            case USECASE_AUDIO_PLAYBACK_OFFLOAD:
+            case USECASE_AUDIO_PLAYBACK_OFFLOAD2:
+            case USECASE_AUDIO_PLAYBACK_OFFLOAD3:
+            case USECASE_AUDIO_PLAYBACK_OFFLOAD4:
+            case USECASE_AUDIO_PLAYBACK_OFFLOAD5:
+            case USECASE_AUDIO_PLAYBACK_OFFLOAD6:
+            case USECASE_AUDIO_PLAYBACK_OFFLOAD7:
+            case USECASE_AUDIO_PLAYBACK_OFFLOAD8:
+            case USECASE_AUDIO_PLAYBACK_OFFLOAD9:
+                return true;
+            default:
+                return false;
+        }
+    }
 
 public:
     StreamOutPrimary(audio_io_handle_t handle,
@@ -574,8 +563,11 @@ public:
     bool isDeviceAvailable(pal_device_id_t deviceId);
     int RouteStream(const std::set<audio_devices_t>&, bool force_device_switch = false);
     ssize_t splitAndWriteAudioHapticsStream(const void *buffer, size_t bytes);
-    ssize_t BypassHapticAndWriteAudioStream(const void *buffer, size_t bytes);
     bool period_size_is_plausible_for_low_latency(int period_size);
+    source_metadata_t btSourceMetadata;
+    std::vector<playback_track_metadata_t> tracks;
+    int SetAggregateSourceMetadata(bool voice_active);
+    static std::mutex sourceMetadata_mutex_;
 protected:
     struct timespec writeAt;
     int get_compressed_buffer_size();
@@ -652,6 +644,10 @@ public:
     int64_t GetSourceLatency(audio_input_flags_t halStreamFlags);
     uint64_t GetFramesRead(int64_t *time);
     int GetPalDeviceIds(pal_device_id_t *palDevIds, int *numPalDevs);
+    sink_metadata_t btSinkMetadata;
+    std::vector<record_track_metadata_t> tracks;
+    int SetAggregateSinkMetadata(bool voice_active);
+    static std::mutex sinkMetadata_mutex_;
 protected:
     struct timespec readAt;
     uint32_t fragments_ = 0;

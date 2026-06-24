@@ -25,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef AUDIOEXTN_H
@@ -39,12 +43,14 @@
 #include <log/log.h>
 #include "battery_listener.h"
 #define DEFAULT_OUTPUT_SAMPLING_RATE 48000
+#include <mutex>
 
 typedef void (*batt_listener_init_t)(battery_status_change_fn_t);
 typedef void (*batt_listener_deinit_t)();
 typedef bool (*batt_prop_is_charging_t)();
 typedef bool (*audio_device_cmp_fn_t)(audio_devices_t);
 
+extern std::mutex reconfig_wait_mutex_;
 class AudioDevice;
 //HFP
 typedef int audio_usecase_t;
@@ -83,8 +89,8 @@ class CompressCapture {
     static const uint32_t kAacPCMSamplesPerFrame = 1024;
 
     // min and max bitrates supported for AAC mono and stereo
-    static const int32_t kAacMonoMinSupportedBitRate = 4000;
-    static const int32_t kAacStereoMinSupportedBitRate = 8000;
+    static const int32_t kAacMonoMinSupportedBitRate = 8000;
+    static const int32_t kAacStereoMinSupportedBitRate = 16000;
 
     static const int32_t kAacMonoMaxSupportedBitRate = 192000;
     static const int32_t kAacStereoMaxSupportedBitRate = 384000;

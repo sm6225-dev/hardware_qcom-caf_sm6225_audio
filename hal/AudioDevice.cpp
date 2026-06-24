@@ -2,8 +2,9 @@
  * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- * Not a Contribution.
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Copyright (C) 2013 The Android Open Source Project
  *
@@ -119,6 +120,7 @@ static const struct audio_string_to_enum device_in_types[] = {
     AUDIO_MAKE_STRING_FROM_ENUM(AUDIO_DEVICE_IN_LINE),
     AUDIO_MAKE_STRING_FROM_ENUM(AUDIO_DEVICE_IN_SPDIF),
     AUDIO_MAKE_STRING_FROM_ENUM(AUDIO_DEVICE_IN_BLUETOOTH_A2DP),
+    AUDIO_MAKE_STRING_FROM_ENUM(AUDIO_DEVICE_IN_BLE_HEADSET),
     AUDIO_MAKE_STRING_FROM_ENUM(AUDIO_DEVICE_IN_LOOPBACK),
     AUDIO_MAKE_STRING_FROM_ENUM(AUDIO_DEVICE_IN_IP),
     AUDIO_MAKE_STRING_FROM_ENUM(AUDIO_DEVICE_IN_BUS),
@@ -598,6 +600,9 @@ std::shared_ptr<StreamInPrimary> AudioDevice::CreateStreamIn(
     stream_in_list_.push_back(astream);
     in_list_mutex.unlock();
     AHAL_DBG("input stream %d %p",(int)stream_in_list_.size(), stream_in);
+    if (voice_) {
+        voice_->stream_in_primary_ = astream;
+    }
     return astream;
 }
 
@@ -1167,11 +1172,16 @@ int AudioDevice::Init(hw_device_t **device, const hw_module_t *module) {
     adev_->perf_lock_opts[3] = 0x1;
     adev_->perf_lock_opts_size = 4;
 
+    adev_->use_spk_whs_combo =
+            property_get_bool("vendor.audio.feature.use_spkr_hs_combo.enable", false);
+    AHAL_ERR("Feature use_spkr_hs_combo  set to %d ",adev_->use_spk_whs_combo);
+
     voice_ = VoiceInit();
     mute_ = false;
     current_rotation = PAL_SPEAKER_ROTATION_LR;
 
     FillAndroidDeviceMap();
+    FillPalDeviceMap();
     audio_extn_gef_init(adev_);
     adev_init_ref_count += 1;
 
@@ -1213,6 +1223,26 @@ std::shared_ptr<StreamOutPrimary> AudioDevice::OutGetStream(audio_io_handle_t ha
 
     out_list_mutex.unlock();
     return astream_out;
+}
+
+std::vector<std::shared_ptr<StreamOutPrimary>> AudioDevice::OutGetBLEStreamOutputs() {
+
+   std::shared_ptr<StreamOutPrimary> astream_out;
+   std::vector<std::shared_ptr<StreamOutPrimary>> astream_out_list;
+   audio_stream_out* stream_out = NULL;
+
+   /* In case of dev switch to BLE device, stream is associated with old
+    * device but not the BLE until dev switch process completed. Thus get the all
+    * active output streams.
+    */
+   for (int i = 0; i < stream_out_list_.size(); i++) {
+       stream_out_list_[i]->GetStreamHandle(&stream_out);
+       astream_out = adev_->OutGetStream((audio_stream_t*)stream_out);
+       if (astream_out) {
+           astream_out_list.push_back(astream_out);
+       }
+   }
+   return astream_out_list;
 }
 
 std::shared_ptr<StreamOutPrimary> AudioDevice::OutGetStream(audio_stream_t* stream_out) {
@@ -1264,6 +1294,26 @@ std::shared_ptr<StreamInPrimary> AudioDevice::InGetStream (audio_stream_t* strea
     in_list_mutex.unlock();
     AHAL_VERBOSE("astream_in(%p)", astream_in->stream_.get());
     return astream_in;
+}
+
+std::vector<std::shared_ptr<StreamInPrimary>> AudioDevice::InGetBLEStreamInputs() {
+
+    std::shared_ptr<StreamInPrimary> astream_in;
+    std::vector<std::shared_ptr<StreamInPrimary>> astream_in_list;
+    audio_stream_in* stream_in = NULL;
+
+   /* In case of dev switch to BLE device, stream is associated with old
+    * device but not the BLE until dev switch process completed. Thus get the all
+    * active input streams.
+    */
+    for (int i = 0; i < stream_in_list_.size(); i++) {
+        stream_in_list_[i]->GetStreamHandle(&stream_in);
+        astream_in = adev_->InGetStream((audio_stream_t*)stream_in);
+        if (astream_in) {
+            astream_in_list.push_back(astream_in);
+        }
+    }
+    return astream_in_list;
 }
 
 int AudioDevice::SetMicMute(bool state) {
@@ -1440,7 +1490,8 @@ int AudioDevice::SetParameters(const char *kvpairs) {
         val = atoi(value);
         audio_devices_t device = (audio_devices_t)val;
 
-        if (audio_is_usb_out_device(device) || audio_is_usb_in_device(device)) {
+        if (device != AUDIO_DEVICE_OUT_USB_ACCESSORY &&
+            (audio_is_usb_out_device(device) || audio_is_usb_in_device(device))) {
             ret = str_parms_get_str(parms, "card", value, sizeof(value));
             if (ret >= 0) {
                 param_device_connection.device_config.usb_addr.card_id = atoi(value);
@@ -1718,6 +1769,8 @@ int AudioDevice::SetParameters(const char *kvpairs) {
         else
             param_bt_a2dp.a2dp_suspended = false;
 
+        param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+
         AHAL_INFO("BT A2DP Suspended = %s, command received", value);
         ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void *)&param_bt_a2dp,
                             sizeof(pal_param_bta2dp_t));
@@ -1925,6 +1978,8 @@ int AudioDevice::SetParameters(const char *kvpairs) {
         else
             param_bt_a2dp.a2dp_capture_suspended = false;
 
+        param_bt_a2dp.dev_id = PAL_DEVICE_IN_BLUETOOTH_A2DP;
+
         AHAL_INFO("BT A2DP Capture Suspended = %s, command received", value);
         ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_CAPTURE_SUSPENDED, (void*)&param_bt_a2dp,
             sizeof(pal_param_bta2dp_t));
@@ -2011,6 +2066,50 @@ char* AudioDevice::GetParameters(const char *keys) {
         }
     }
 
+    ret = str_parms_get_str(query, AUDIO_PARAMETER_KEY_MIC_OCCLUSION_INFO , value, sizeof(value));
+    if (ret >= 0) {
+        void *micInfo = nullptr;
+        std::string micOccInfoReply = "";
+        ret = pal_get_param(PAL_PARAM_ID_MIC_OCCLUSION_INFO,
+                            &micInfo, &size,
+                             nullptr);
+
+        auto micInfoVec = static_cast<std::vector<std::vector<pal_param_mic_occlusion_info_t>>*>(micInfo);
+
+        for (const auto& innerVector : *micInfoVec) {
+            micOccInfoReply += "{";
+            audio_devices_t dev_id = AUDIO_DEVICE_NONE;
+            micOccInfoReply += "Device:";
+            micOccInfoReply += getAndroidDevice(innerVector[0].id);
+            micOccInfoReply += "[";
+            for (int j = 0; j < innerVector.size(); j++) {
+                micOccInfoReply += "{";
+                micOccInfoReply += "MicType:";
+                if (j==0) {
+                    micOccInfoReply += "PrimaryMic";
+                } else {
+                    micOccInfoReply += "SecondaryMic";
+                }
+                micOccInfoReply += ",";
+                micOccInfoReply += " is_cur_occluded:";
+                micOccInfoReply += std::to_string(innerVector[j].is_occluded);
+                micOccInfoReply += ",";
+                micOccInfoReply += " num_of_occlusions:";
+                micOccInfoReply += std::to_string(innerVector[j].num_of_occlusion);
+                micOccInfoReply += ",";
+                micOccInfoReply += " num_of_recovery:";
+                micOccInfoReply += std::to_string(innerVector[j].num_of_recovery);
+                micOccInfoReply += "}";
+                micOccInfoReply += ",";
+            }
+            micOccInfoReply += "]";
+            micOccInfoReply += "}";
+        }
+        AHAL_DBG("%s: micInfo: %s",__func__, micOccInfoReply.c_str());
+        str_parms_add_str(reply, "mic_occlusion_info", micOccInfoReply.c_str());
+        delete micInfoVec;
+    }
+
     AudioExtn::audio_extn_get_parameters(adev_, query, reply);
     if (voice_)
         voice_->VoiceGetParameters(query, reply);
@@ -2029,6 +2128,17 @@ exit:
     return str;
 }
 
+const char* AudioDevice::getAndroidDevice(pal_device_id_t id) {
+    if (pal_device_map_.find(id) != pal_device_map_.end()) {
+        for (int i = 0; i < ARRAY_SIZE(device_in_types); i++) {
+            if (device_in_types[i].value == pal_device_map_[id]) {
+                return device_in_types[i].name;
+            }
+        }
+    }
+    return "AUDIO_DEVICE_NONE";
+}
+
 void AudioDevice::FillAndroidDeviceMap() {
     android_device_map_.clear();
     /* go through all devices and pushback */
@@ -2042,6 +2152,8 @@ void AudioDevice::FillAndroidDeviceMap() {
     android_device_map_.insert(std::make_pair(AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET, PAL_DEVICE_OUT_BLUETOOTH_SCO));
     android_device_map_.insert(std::make_pair(AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT, PAL_DEVICE_OUT_BLUETOOTH_SCO));
     android_device_map_.insert(std::make_pair(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP, PAL_DEVICE_OUT_BLUETOOTH_A2DP));
+    android_device_map_.insert(std::make_pair(AUDIO_DEVICE_OUT_BLE_HEADSET, PAL_DEVICE_OUT_BLUETOOTH_BLE));
+    android_device_map_.insert(std::make_pair(AUDIO_DEVICE_OUT_BLE_SPEAKER, PAL_DEVICE_OUT_BLUETOOTH_BLE));
     //android_device_map_.insert(std::make_pair(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES, PAL_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES));
     //android_device_map_.insert(std::make_pair(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER, PAL_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER));
     android_device_map_.insert(std::make_pair(AUDIO_DEVICE_OUT_AUX_DIGITAL, PAL_DEVICE_OUT_AUX_DIGITAL));
@@ -2087,6 +2199,7 @@ void AudioDevice::FillAndroidDeviceMap() {
     android_device_map_.insert(std::make_pair(AUDIO_DEVICE_IN_LINE, PAL_DEVICE_IN_LINE));
     android_device_map_.insert(std::make_pair(AUDIO_DEVICE_IN_SPDIF, PAL_DEVICE_IN_SPDIF));
     android_device_map_.insert(std::make_pair(AUDIO_DEVICE_IN_BLUETOOTH_A2DP, PAL_DEVICE_IN_BLUETOOTH_A2DP));
+    android_device_map_.insert(std::make_pair(AUDIO_DEVICE_IN_BLE_HEADSET, PAL_DEVICE_IN_BLUETOOTH_BLE));
     //android_device_map_.insert(std::make_pair(AUDIO_DEVICE_IN_LOOPBACK, PAL_DEVICE_IN_LOOPBACK);
     //android_device_map_.insert(std::make_pair(AUDIO_DEVICE_IN_IP, PAL_DEVICE_IN_IP);
     //android_device_map_.insert(std::make_pair(AUDIO_DEVICE_IN_BUS, PAL_DEVICE_IN_BUS);
@@ -2097,6 +2210,32 @@ void AudioDevice::FillAndroidDeviceMap() {
     //android_device_map_.insert(std::make_pair(AUDIO_DEVICE_IN_DEFAULT, PAL_DEVICE_IN_DEFAULT));
 #ifdef EC_REF_CAPTURE_ENABLED
     android_device_map_.insert(std::make_pair(AUDIO_DEVICE_IN_ECHO_REFERENCE, PAL_DEVICE_IN_ECHO_REF));
+#endif
+}
+
+/* Presently only created for IN devices. */
+void AudioDevice::FillPalDeviceMap() {
+    pal_device_map_.clear();
+
+    /* go through all in devices and pushback */
+
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_HANDSET_MIC, AUDIO_DEVICE_IN_BUILTIN_MIC));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_SPEAKER_MIC, AUDIO_DEVICE_IN_BACK_MIC));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET, AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_WIRED_HEADSET, AUDIO_DEVICE_IN_WIRED_HEADSET));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_AUX_DIGITAL, AUDIO_DEVICE_IN_AUX_DIGITAL));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_HDMI, AUDIO_DEVICE_IN_HDMI));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_TELEPHONY_RX, AUDIO_DEVICE_IN_TELEPHONY_RX));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_USB_ACCESSORY, AUDIO_DEVICE_IN_USB_ACCESSORY));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_USB_DEVICE, AUDIO_DEVICE_IN_USB_HEADSET));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_FM_TUNER, AUDIO_DEVICE_IN_FM_TUNER));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_LINE, AUDIO_DEVICE_IN_LINE));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_SPDIF, AUDIO_DEVICE_IN_SPDIF));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_BLUETOOTH_A2DP, AUDIO_DEVICE_IN_BLUETOOTH_A2DP));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_PROXY, AUDIO_DEVICE_IN_PROXY));
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_USB_HEADSET, AUDIO_DEVICE_IN_USB_HEADSET));
+#ifdef EC_REF_CAPTURE_ENABLED
+    pal_device_map_.insert(std::make_pair(PAL_DEVICE_IN_ECHO_REF, AUDIO_DEVICE_IN_ECHO_REFERENCE));
 #endif
 }
 

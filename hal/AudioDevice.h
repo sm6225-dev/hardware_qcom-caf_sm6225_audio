@@ -28,7 +28,7 @@
  */
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -63,6 +63,8 @@
 #define AUDIO_PARAMETER_KEY_FACING "facing"
 #define AUDIO_PARAMETER_KEY_HDR_CHANNELS "hdr_audio_channel_count"
 #define AUDIO_PARAMETER_KEY_HDR_SAMPLERATE "hdr_audio_sampling_rate"
+/* Get Mic Occlusion Info*/
+#define AUDIO_PARAMETER_KEY_MIC_OCCLUSION_INFO "mic_occlusion_info"
 
 #define AUDIO_MAKE_STRING_FROM_ENUM(X)   { #X, X }
 #define PAL_MAX_INPUT_DEVICES (PAL_DEVICE_IN_MAX - (PAL_DEVICE_IN_MIN + 1))
@@ -146,6 +148,8 @@ public:
     int SetGEFParam(void *data, int length);
     int GetGEFParam(void *data, int *length);
     std::shared_ptr<StreamOutPrimary> OutGetStream(audio_io_handle_t handle);
+    std::vector<std::shared_ptr<StreamOutPrimary>> OutGetBLEStreamOutputs();
+    std::vector<std::shared_ptr<StreamInPrimary>> InGetBLEStreamInputs();
     std::shared_ptr<StreamOutPrimary> OutGetStream(audio_stream_t* audio_stream);
     std::shared_ptr<StreamInPrimary> CreateStreamIn(
             audio_io_handle_t handle,
@@ -168,6 +172,7 @@ public:
     int SetVoiceVolume(float volume);
     void SetChargingMode(bool is_charging);
     void FillAndroidDeviceMap();
+    void FillPalDeviceMap();
     int GetPalDeviceIds(
             const std::set<audio_devices_t>& hal_device_id,
             pal_device_id_t* pal_device_id);
@@ -187,6 +192,7 @@ public:
     int perf_lock_opts[MAX_PERF_LOCK_OPTS];
     int perf_lock_opts_size;
     bool hdr_record_enabled = false;
+    bool use_spk_whs_combo = false;
     bool wnr_enabled = false;
     bool ans_enabled = false;
     bool orientation_landscape = true;
@@ -219,6 +225,8 @@ public:
     static void xml_end_tag(void *userdata, const XML_Char *tag_name);
     static void xml_char_data_handler(void *userdata, const XML_Char *s, int len);
     static int parse_xml();
+    const char* getAndroidDevice(pal_device_id_t id);
+
 protected:
     AudioDevice() {}
     std::shared_ptr<AudioVoice> VoiceInit();
@@ -240,6 +248,7 @@ protected:
     visualizer_hal_stop_output fnp_visualizer_stop_output_ = nullptr;
     std::map<audio_devices_t, pal_device_id_t> android_device_map_;
     std::map<audio_patch_handle_t, AudioPatch*> patch_map_;
+    std::map<pal_device_id_t, audio_devices_t> pal_device_map_;
     int add_input_headset_if_usb_out_headset(int *device_count,  pal_device_id_t** pal_device_ids, bool conn_state);
 };
 
