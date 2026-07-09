@@ -118,6 +118,8 @@ ifeq ($(strip $(AUDIO_FEATURE_ENABLED_PAL_HIDL)),true)
     vendor.qti.hardware.pal@1.0
 
   LOCAL_CFLAGS += -DPAL_HIDL_ENABLED
+  LOCAL_C_INCLUDES += \
+    $(TOP)/hardware/qcom-caf/sm6225/audio/pal/ipc/HwBinders/pal_ipc_server/inc
 endif
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_AGM_HIDL)),true)
