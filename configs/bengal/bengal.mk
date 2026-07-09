@@ -91,6 +91,7 @@ AUDIO_FEATURE_ENABLED_SVA_MULTI_STAGE := true
 AUDIO_FEATURE_ENABLED_BATTERY_LISTENER := true
 BUILD_AUDIO_TECHPACK_SOURCE := true
 AUDIO_FEATURE_ENABLED_MCS := true
+AUDIO_FEATURE_ENABLED_DEVICE_PREPARE_SEQ := true
 ##AUDIO_FEATURE_FLAGS
 #AGM
 AUDIO_AGM := libagmclient
@@ -108,6 +109,7 @@ AUDIO_AGM += agmcompressplay
 AUDIO_AGM += libagm_mixer_plugin
 AUDIO_AGM += libagm_pcm_plugin
 AUDIO_AGM += libagm_compress_plugin
+AUDIO_AGM += stt_meta_extract
 
 #PAL Service
 AUDIO_PAL += libpalclient
@@ -164,7 +166,7 @@ ifneq ($(TARGET_HAS_QTI_OPTIMIZATIONS), true)
 PRODUCT_PACKAGES += audioadsprpcd
 PRODUCT_PACKAGES += vendor.qti.audio-adsprpc-service.rc
 endif
-ifneq ($(TARGET_BOARD_SUFFIX),_515_32go)
+ifeq ($(filter _515_32go _515s_32go _515tiny_32go, $(TARGET_BOARD_SUFFIX)),)
 PRODUCT_PACKAGES += android.hardware.audio.service_64
 PRODUCT_PACKAGES += android.hardware.audio.service_64.rc
 else
@@ -181,6 +183,10 @@ PRODUCT_PACKAGES += IDP_qti_optimized_workspaceFileXml.qwsp
 endif
 PRODUCT_PACKAGES += QRD_acdb_cal.acdb
 PRODUCT_PACKAGES += QRD_workspaceFileXml.qwsp
+ifeq ($(TARGET_HAS_QTI_OPTIMIZATIONS), true)
+PRODUCT_PACKAGES += QRD_qti_optimized_acdb_cal.acdb
+PRODUCT_PACKAGES += QRD_qti_optimized_workspaceFileXml.qwsp
+endif
 PRODUCT_PACKAGES += IDP_scuba_acdb_cal.acdb
 PRODUCT_PACKAGES += IDP_scuba_workspaceFileXml.qwsp
 ifeq ($(TARGET_HAS_QTI_OPTIMIZATIONS), true)
@@ -201,7 +207,9 @@ PRODUCT_PACKAGES += QRD_arrax_acdb_cal.acdb
 PRODUCT_PACKAGES += QRD_arrax_workspaceFileXml.qwsp
 PRODUCT_PACKAGES += fai__2.0.0_0.1__3.0.0_0.0__eai_1.10.pmd
 PRODUCT_PACKAGES += fai__2.2.0_0.1__3.0.0_0.0__eai_1.10.pmd
+PRODUCT_PACKAGES += fai__2.7.20_0.0__3.0.0_0.0__eai_1.50_adsp.pmd
 PRODUCT_PACKAGES += fai__4.6.1.5_0.0__3.0.0_0.0__3.1.1_0.0__3.2.0_0.0__eai_1.10_enpuv1.pmd
+PRODUCT_PACKAGES += fai__4.6.3_0.0__3.0.0_0.0__eai_1.50_adsp.pmd
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_MCS)), true)
 PRODUCT_PACKAGES += libmcs
@@ -517,7 +525,7 @@ vendor.audio.gsl.shmem.dmaheap.uncached=true \
 vendor.audio.feature.snd_mon.enable=true
 
 # for HIDL related packages
-ifneq ($(TARGET_BOARD_SUFFIX),_515_32go)
+ifeq ($(filter _515_32go _515s_32go _515tiny_32go, $(TARGET_BOARD_SUFFIX)),)
 PRODUCT_PACKAGES += \
     android.hardware.audio@2.0-service_64
 else
